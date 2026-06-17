@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BO团队KPI Dashboard - 2026 Q1</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #1a3a5c;
+    --primary-light: #2c5f8a;
+    --accent: #e8913a;
+    --accent-light: #f0a85e;
+    --bg: #f4f6f9;
+    --card-bg: #ffffff;
+    --text: #2c3e50;
+    --text-light: #6c7a89;
+    --border: #e1e8ed;
+    --success: #27ae60;
+    --danger: #e74c3c;
+    --warning: #f39c12;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    padding: 24px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header h1 { font-size: 24px; font-weight: 600; }
+  .header .subtitle { font-size: 14px; opacity: 0.85; margin-top: 4px; }
+  .header .badge {
+    background: var(--accent);
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .container { max-width: 1440px; margin: 0 auto; padding: 24px; }
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 20px 24px;
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary);
+    transition: transform 0.2s;
+  }
+  .summary-card:hover { transform: translateY(-2px); }
+  .summary-card .label { font-size: 12px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+  .summary-card .value { font-size: 28px; font-weight: 700; margin: 6px 0 4px; color: var(--primary); }
+  .summary-card .sub { font-size: 12px; color: var(--text-light); }
+  .summary-card .sub span.up { color: var(--success); font-weight: 600; }
+  .summary-card .sub span.down { color: var(--danger); font-weight: 600; }
+  .summary-card.accent-border { border-left-color: var(--accent); }
+  .summary-card.success-border { border-left-color: var(--success); }
+  .summary-card.warning-border { border-left-color: var(--warning); }
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .chart-card.full-width { grid-column: 1 / -1; }
+  .chart-card h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--border);
+  }
+  .chart-wrapper { position: relative; width: 100%; }
+  .chart-wrapper canvas { width: 100% !important; }
+  .tab-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    background: var(--card-bg);
+    border-radius: 10px;
+    padding: 8px;
+    box-shadow: var(--shadow);
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: 8px 20px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-light);
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { background: var(--bg); color: var(--text); }
+  .tab-btn.active { background: var(--primary); color: white; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .data-table th {
+    background: var(--primary);
+    color: white;
+    padding: 10px 12px;
+    text-align: center;
+    font-weight: 500;
+  }
+  .data-table td {
+    padding: 8px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table tr:hover { background: #f8f9fb; }
+  .status-ok { color: var(--success); font-weight: 600; }
+  .status-warn { color: var(--warning); font-weight: 600; }
+  .status-bad { color: var(--danger); font-weight: 600; }
+  .footer {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-light);
+    font-size: 12px;
+  }
+  @media (max-width: 1024px) {
+    .summary-row { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .summary-row { grid-template-columns: 1fr; }
+    .header { padding: 16px; flex-direction: column; text-align: center; gap: 10px; }
+    .container { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>BO团队KPI Dashboard</h1>
+    <div class="subtitle">Pharmaron Clinical Development · Business Operations</div>
+  </div>
+  <div class="badge">2026 Q1</div>
+</div>
+
+<div class="container">
+  <div class="summary-row">
+    <div class="summary-card">
+      <div class="label">临床开发部合同额 2026Q1</div>
+      <div class="value">¥5,138万</div>
+      <div class="sub">Q1计划 ¥3,450万 · <span class="up">完成149%</span></div>
+    </div>
+    <div class="summary-card accent-border">
+      <div class="label">临床开发部收入 2026Q1</div>
+      <div class="value">¥3,377万</div>
+      <div class="sub">Q1计划 ¥3,503万 · <span class="down">完成96%</span></div>
+    </div>
+    <div class="summary-card success-border">
+      <div class="label">BO部门合同额 2026Q1</div>
+      <div class="value">¥305万</div>
+      <div class="sub">同比2025Q1大幅增长</div>
+    </div>
+    <div class="summary-card warning-border">
+      <div class="label">BO部门收入 2026Q1</div>
+      <div class="value">¥287万</div>
+      <div class="sub">同比2025Q1 ¥174万 · <span class="up">增长65%</span></div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('contract',this)">合同额达成</button>
+    <button class="tab-btn" onclick="switchTab('revenue',this)">收入额达成</button>
+    <button class="tab-btn" onclick="switchTab('tmf',this)">TMF回收率</button>
+    <button class="tab-btn" onclick="switchTab('hours',this)">工时利用率</button>
+    <button class="tab-btn" onclick="switchTab('training',this)">培训完成率</button>
+    <button class="tab-btn" onclick="switchTab('quality',this)">工作质量</button>
+    <button class="tab-btn" onclick="switchTab('ctms',this)">CTMS使用率</button>
+  </div>
+
+  <!-- Tab: Contract -->
+  <div id="tab-contract" class="tab-content active">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>2026 Q1 合同额达成情况 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="contractAchieve" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>临床开发部各团队 2026Q1 合同额 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="contractTeams" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>临床开发部合同额同比趋势 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="contractCDYoY" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>BO部门合同额同比趋势 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="contractBOYoY" height="190"></canvas></div>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1">
+        <h3>BO部门各团队 2026Q1 合同额 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="contractBOTeams" height="180"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Revenue -->
+  <div id="tab-revenue" class="tab-content">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>2026 Q1 收入额达成情况 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="revenueAchieve" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>临床开发部各团队 2026Q1 收入额 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="revenueTeams" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>临床开发部收入额同比趋势 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="revenueCDYoY" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>BO部门收入额同比趋势 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="revenueBOYoY" height="190"></canvas></div>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1">
+        <h3>BO部门各团队 2026Q1 收入额 (万元)</h3>
+        <div class="chart-wrapper"><canvas id="revenueBOTeams" height="180"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: TMF -->
+  <div id="tab-tmf" class="tab-content">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>eTMF / 核心文件 / 纸质回收率趋势 (2026)</h3>
+        <div class="chart-wrapper"><canvas id="tmfTrend" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Q1回收率汇总</h3>
+        <table class="data-table">
+          <thead><tr><th>指标</th><th>1月</th><th>2月</th><th>3月</th><th>目标</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr><td>eTMF回收率</td><td>93.3%</td><td>92.9%</td><td>92.8%</td><td>90%</td><td class="status-ok">达标</td></tr>
+            <tr><td>核心文件回收率</td><td>91.6%</td><td>91.4%</td><td>91.8%</td><td>90%</td><td class="status-ok">达标</td></tr>
+            <tr><td>纸质回收率</td><td>77.1%</td><td>77.7%</td><td>78.2%</td><td>90%</td><td class="status-bad">未达标</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Hours -->
+  <div id="tab-hours" class="tab-content">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>BO团队及各子团队项目理论工时利用率趋势 (2026)</h3>
+        <div class="chart-wrapper"><canvas id="hoursTrend" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>BO团队及各子团队Billable Rate趋势 (2026)</h3>
+        <div class="chart-wrapper"><canvas id="billableTrend" height="190"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Q1平均项目理论工时利用率</h3>
+        <div class="chart-wrapper"><canvas id="hoursAvg" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Q1工时数据明细</h3>
+        <table class="data-table">
+          <thead><tr><th>团队</th><th>1月</th><th>2月</th><th>3月</th><th>Q1均值</th><th>目标</th></tr></thead>
+          <tbody>
+            <tr><td>BO团队</td><td>78.0%</td><td>66.0%</td><td>81.1%</td><td>75.0%</td><td>85%</td></tr>
+            <tr><td>CTA团队</td><td>78.0%</td><td>66.0%</td><td>81.0%</td><td>75.0%</td><td>85%</td></tr>
+            <tr><td>TMFs团队</td><td>71.06%</td><td>71.97%</td><td>80.5%</td><td>74.51%</td><td>85%</td></tr>
+            <tr><td>遗传办团队</td><td>94.74%</td><td>89.45%</td><td>99.95%</td><td>94.71%</td><td>85%</td></tr>
+            <tr><td>供应链团队</td><td>59.0%</td><td>61.0%</td><td>69.0%</td><td>63.0%</td><td>85%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Training -->
+  <div id="tab-training" class="tab-content">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>BO部门培训完成率 (2026)</h3>
+        <div class="chart-wrapper"><canvas id="trainingChart" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Q1培训完成率汇总</h3>
+        <table class="data-table">
+          <thead><tr><th>月份</th><th>实际完成率</th><th>目标</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr><td>1月</td><td>99.1%</td><td>99%</td><td class="status-ok">达标</td></tr>
+            <tr><td>2月</td><td>100.0%</td><td>99%</td><td class="status-ok">达标</td></tr>
+            <tr><td>3月</td><td>99.6%</td><td>99%</td><td class="status-ok">达标</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Quality -->
+  <div id="tab-quality" class="tab-content">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>CTA基础问题占比趋势</h3>
+        <div class="chart-wrapper"><canvas id="ctaQuality" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>CTA识别缺失偏差趋势</h3>
+        <div class="chart-wrapper"><canvas id="ctaDeviation" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>遗传办申请次数同比 (Q1)</h3>
+        <div class="chart-wrapper"><canvas id="geneticsApps" height="190"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>遗传办综合通过率 (2026 Q1)</h3>
+        <div class="chart-wrapper"><canvas id="geneticsPass" height="190"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: CTMS -->
+  <div id="tab-ctms" class="tab-content">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>CTMS系统使用率分布</h3>
+        <div class="chart-wrapper"><canvas id="ctmsChart" height="155"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>CTMS使用率汇总</h3>
+        <table class="data-table">
+          <thead><tr><th>等级</th><th>占比</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr><td>优秀 (90%-100%)</td><td>41.5%</td><td class="status-ok">优秀</td></tr>
+            <tr><td>良好 (70%-90%)</td><td>14.2%</td><td class="status-ok">良好</td></tr>
+            <tr><td>及格 (50%-70%)</td><td>7.8%</td><td class="status-warn">及格</td></tr>
+            <tr><td>不及格 (0%-50%)</td><td>24.3%</td><td class="status-bad">待改进</td></tr>
+            <tr style="background:#f8f9fb"><td style="font-weight:600">优秀+良好合计</td><td style="font-weight:600">55.7%</td><td class="status-ok">过半达标</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">BO团队KPI Dashboard · 数据更新至 2026年Q1 · Pharmaron Clinical Development</div>
+
+<script>
+Chart.defaults.font.family = "'Segoe UI', 'Microsoft YaHei', sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.plugins.legend.labels.padding = 16;
+
+const COLORS = {
+  primary: '#1a3a5c', primaryLight: '#2c5f8a', accent: '#e8913a', accentLight: '#f0a85e',
+  success: '#27ae60', danger: '#e74c3c', warning: '#f39c12', info: '#3498db',
+  gray: '#95a5a6', lightGray: '#ecf0f1',
+  palette: ['#1a3a5c','#2c5f8a','#e8913a','#27ae60','#3498db','#9b59b6','#e74c3c','#1abc9c','#f39c12']
+};
+
+const MONTHS12 = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// helper: safe label drawing (skip null/undefined)
+function drawLabels(chart, dsIndex, dataArr, color, fontSize) {
+  const { ctx } = chart;
+  const meta = chart.getDatasetMeta(dsIndex);
+  meta.data.forEach((pt, i) => {
+    const val = dataArr[i];
+    if (val == null || val === '') return;
+    ctx.fillStyle = color;
+    ctx.font = (fontSize || 11) + 'px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(typeof val === 'number' ? (Number.isInteger(val) ? val : val.toFixed(1)) : val, pt.x, pt.y - 10);
+  });
+}
+
+// ===== Contract Charts =====
+new Chart(document.getElementById('contractAchieve'), {
+  type: 'bar',
+  data: {
+    labels: ['2026年度计划', 'Q1 计划', 'Q1 实际'],
+    datasets: [{ label: '合同额 (万元)', data: [23000, 3450, 5137.63], backgroundColor: [COLORS.primaryLight, COLORS.accent, COLORS.success], borderRadius: 6, barPercentage: 0.6 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } },
+  plugins: [{ id: 'barLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('¥' + chart.data.datasets[0].data[i].toLocaleString() + '万', bar.x, bar.y - 8); }); } }]
+});
+
+new Chart(document.getElementById('contractTeams'), {
+  type: 'bar',
+  data: {
+    labels: ['PM-A', 'PM-B+C', 'SSU&RWS', 'BO', 'QC', 'CO'],
+    datasets: [{ label: '2026Q1 合同额 (万元)', data: [1645.28, 2832.21, 138.32, 304.64, 217.18, 0], backgroundColor: COLORS.palette.slice(0, 6), borderRadius: 6, barPercentage: 0.65 }]
+  },
+  options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } },
+  plugins: [{ id: 'hBarLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { const val = chart.data.datasets[0].data[i]; if (val === 0) return; ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('¥' + val.toLocaleString() + '万', bar.x + 6, bar.y + 4); }); } }]
+});
+
+// Contract YoY - split: CD dept
+new Chart(document.getElementById('contractCDYoY'), {
+  type: 'bar',
+  data: {
+    labels: ['2024Q1 实际', '2025Q1 实际', '2026Q1 实际'],
+    datasets: [{ label: '临床开发部合同额', data: [2050, 1059, 5138], backgroundColor: [COLORS.primaryLight, COLORS.primary, COLORS.success], borderRadius: 6, barPercentage: 0.55 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '¥' + ctx.raw.toLocaleString() + '万' } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } },
+  plugins: [{ id: 'cdConYoyLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('¥' + chart.data.datasets[0].data[i].toLocaleString() + '万', bar.x, bar.y - 8); }); } }]
+});
+
+// Contract YoY - split: BO dept
+new Chart(document.getElementById('contractBOYoY'), {
+  type: 'bar',
+  data: {
+    labels: ['2024Q1 实际', '2025Q1 实际', '2026Q1 实际'],
+    datasets: [{ label: 'BO部门合同额', data: [0, 16, 305], backgroundColor: [COLORS.lightGray, COLORS.accentLight, COLORS.accent], borderRadius: 6, barPercentage: 0.55 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '¥' + ctx.raw.toLocaleString() + '万' } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } },
+  plugins: [{ id: 'boConYoyLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { const val = chart.data.datasets[0].data[i]; ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('¥' + val.toLocaleString() + '万', bar.x, bar.y - 8); }); } }]
+});
+
+new Chart(document.getElementById('contractBOTeams'), {
+  type: 'bar',
+  data: {
+    labels: ['供应链', '临床支持', '遗传办', '核心文档', '临床试验助理'],
+    datasets: [{ label: 'BO部门各团队 2026Q1 合同额 (万元)', data: [16, 170, 20, 62, 7], backgroundColor: COLORS.palette.slice(0, 5), borderRadius: 6, barPercentage: 0.55 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '¥' + ctx.raw + '万' } } }, scales: { y: { beginAtZero: true } } },
+  plugins: [{ id: 'boTeamConLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('¥' + chart.data.datasets[0].data[i] + '万', bar.x, bar.y - 8); }); } }]
+});
+
+// ===== Revenue Charts =====
+new Chart(document.getElementById('revenueAchieve'), {
+  type: 'bar',
+  data: {
+    labels: ['2026年度计划', 'Q1 计划', 'Q1 实际'],
+    datasets: [{ label: '收入额 (万元)', data: [14662.58, 3503.18, 3377.07], backgroundColor: [COLORS.primaryLight, COLORS.accent, COLORS.accentLight], borderRadius: 6, barPercentage: 0.6 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } },
+  plugins: [{ id: 'revBarLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('¥' + chart.data.datasets[0].data[i].toLocaleString() + '万', bar.x, bar.y - 8); }); } }]
+});
+
+new Chart(document.getElementById('revenueTeams'), {
+  type: 'bar',
+  data: {
+    labels: ['PM-A', 'PM-B+C', 'RWS&SSU', 'BO', 'QC', 'CO'],
+    datasets: [{ label: '2026Q1 收入额 (万元)', data: [1534.62, 1348.84, 139.84, 287.47, 66.30, 0], backgroundColor: COLORS.palette.slice(0, 6), borderRadius: 6, barPercentage: 0.65 }]
+  },
+  options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } },
+  plugins: [{ id: 'revHBarLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { const val = chart.data.datasets[0].data[i]; if (val === 0) return; ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('¥' + val.toFixed(2) + '万', bar.x + 6, bar.y + 4); }); } }]
+});
+
+// Revenue YoY - split: CD dept
+new Chart(document.getElementById('revenueCDYoY'), {
+  type: 'bar',
+  data: {
+    labels: ['2024Q1 实际', '2025Q1 实际', '2026Q1 实际'],
+    datasets: [{ label: '临床开发部收入', data: [2700, 3681, 3377], backgroundColor: [COLORS.primaryLight, COLORS.primary, COLORS.success], borderRadius: 6, barPercentage: 0.55 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '¥' + ctx.raw.toLocaleString() + '万' } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } },
+  plugins: [{ id: 'cdRevYoyLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('¥' + chart.data.datasets[0].data[i].toLocaleString() + '万', bar.x, bar.y - 8); }); } }]
+});
+
+// Revenue YoY - split: BO dept
+new Chart(document.getElementById('revenueBOYoY'), {
+  type: 'bar',
+  data: {
+    labels: ['2024Q1 实际', '2025Q1 实际', '2026Q1 实际'],
+    datasets: [{ label: 'BO部门收入', data: [0, 174, 287], backgroundColor: [COLORS.lightGray, COLORS.accentLight, COLORS.accent], borderRadius: 6, barPercentage: 0.55 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '¥' + ctx.raw.toLocaleString() + '万' } } }, scales: { y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } } } },
+  plugins: [{ id: 'boRevYoyLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('¥' + chart.data.datasets[0].data[i].toLocaleString() + '万', bar.x, bar.y - 8); }); } }]
+});
+
+new Chart(document.getElementById('revenueBOTeams'), {
+  type: 'bar',
+  data: {
+    labels: ['供应链', '临床支持', '遗传办', '核心文档'],
+    datasets: [{ label: 'BO部门各团队 2026Q1 收入额 (万元)', data: [38, 103, 39, 119], backgroundColor: COLORS.palette.slice(0, 4), borderRadius: 6, barPercentage: 0.55 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '¥' + ctx.raw + '万' } } }, scales: { y: { beginAtZero: true } } },
+  plugins: [{ id: 'boTeamRevLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('¥' + chart.data.datasets[0].data[i] + '万', bar.x, bar.y - 8); }); } }]
+});
+
+// ===== TMF Charts ===== (full 12 months)
+new Chart(document.getElementById('tmfTrend'), {
+  type: 'line',
+  data: {
+    labels: MONTHS12,
+    datasets: [
+      { label: 'eTMF回收率', data: [93.26, 92.92, 92.76, null, null, null, null, null, null, null, null, null], borderColor: COLORS.primary, backgroundColor: 'rgba(26,58,92,0.1)', fill: true, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '核心文件回收率', data: [91.57, 91.37, 91.80, null, null, null, null, null, null, null, null, null], borderColor: COLORS.accent, backgroundColor: 'rgba(232,145,58,0.1)', fill: true, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '纸质回收率', data: [77.07, 77.70, 78.18, null, null, null, null, null, null, null, null, null], borderColor: COLORS.danger, backgroundColor: 'rgba(231,76,60,0.1)', fill: true, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '目标线 (90%)', data: [90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90], borderColor: COLORS.success, borderDash: [8, 4], pointRadius: 0, borderWidth: 2 }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { tooltip: { callbacks: { label: ctx => { if (ctx.raw == null) return null; return ctx.dataset.label + ': ' + ctx.raw + '%'; } } } },
+    scales: { y: { min: 70, max: 100, ticks: { callback: v => v + '%' } } }
+  },
+  plugins: [{ id: 'tmfLineLabels', afterDatasetsDraw(chart) {
+    const ds = chart.data.datasets;
+    [0,1,2].forEach(di => {
+      const meta = chart.getDatasetMeta(di);
+      meta.data.forEach((pt, i) => {
+        const val = ds[di].data[i];
+        if (val == null) return;
+        chart.ctx.fillStyle = ds[di].borderColor;
+        chart.ctx.font = 'bold 9px sans-serif';
+        chart.ctx.textAlign = 'center';
+        chart.ctx.fillText(val.toFixed(1) + '%', pt.x, pt.y - 8);
+      });
+    });
+  }}]
+});
+
+// ===== Hours Charts ===== (full 12 months, split by theory & billable)
+// Theory hours trend
+new Chart(document.getElementById('hoursTrend'), {
+  type: 'line',
+  data: {
+    labels: MONTHS12,
+    datasets: [
+      { label: 'BO团队', data: [78.0, 66.0, 81.1, null,null,null,null,null,null,null,null,null], borderColor: COLORS.primary, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: 'CTA团队', data: [78.0, 66.0, 81.0, null,null,null,null,null,null,null,null,null], borderColor: COLORS.accent, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: 'TMFs团队', data: [71.06, 71.97, 80.5, null,null,null,null,null,null,null,null,null], borderColor: COLORS.success, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '遗传办团队', data: [94.74, 89.45, 99.95, null,null,null,null,null,null,null,null,null], borderColor: '#9b59b6', tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '供应链团队', data: [59.0, 61.0, 69.0, null,null,null,null,null,null,null,null,null], borderColor: COLORS.info, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '目标线 (85%)', data: [85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85], borderColor: COLORS.danger, borderDash: [8, 4], pointRadius: 0, borderWidth: 2 }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { tooltip: { callbacks: { label: ctx => { if (ctx.raw == null) return null; return ctx.dataset.label + ': ' + ctx.raw + '%'; } } } },
+    scales: { y: { min: 40, max: 105, ticks: { callback: v => v + '%' } } }
+  },
+  plugins: [{ id: 'hoursLineLabels', afterDatasetsDraw(chart) {
+    [0,1,2,3,4].forEach(di => {
+      drawLabels(chart, di, chart.data.datasets[di].data, chart.data.datasets[di].borderColor, 9);
+    });
+  }}]
+});
+
+// Billable Rate trend
+new Chart(document.getElementById('billableTrend'), {
+  type: 'line',
+  data: {
+    labels: MONTHS12,
+    datasets: [
+      { label: 'CTA团队', data: [0.53, 0.97, 0.63, null,null,null,null,null,null,null,null,null].map(v => v == null ? null : +(v * 100).toFixed(1)), borderColor: COLORS.accent, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: 'TMFs团队', data: [0.80, 1.23, 0.69, null,null,null,null,null,null,null,null,null].map(v => v == null ? null : +(v * 100).toFixed(1)), borderColor: COLORS.success, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '遗传办团队', data: [0.60, 0.40, 1.23, null,null,null,null,null,null,null,null,null].map(v => v == null ? null : +(v * 100).toFixed(1)), borderColor: '#9b59b6', tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '供应链团队', data: [1.19, 0.50, 1.24, null,null,null,null,null,null,null,null,null].map(v => v == null ? null : +(v * 100).toFixed(1)), borderColor: COLORS.info, tension: 0.3, pointRadius: 5, borderWidth: 3, spanGaps: false },
+      { label: '目标线 (100%)', data: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100], borderColor: COLORS.success, borderDash: [8, 4], pointRadius: 0, borderWidth: 2 }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { tooltip: { callbacks: { label: ctx => { if (ctx.raw == null) return null; return ctx.dataset.label + ': ' + ctx.raw + '%'; } } } },
+    scales: { y: { min: 0, max: 140, ticks: { callback: v => v + '%' } } }
+  },
+  plugins: [{ id: 'billableLineLabels', afterDatasetsDraw(chart) {
+    [0,1,2,3].forEach(di => {
+      drawLabels(chart, di, chart.data.datasets[di].data, chart.data.datasets[di].borderColor, 9);
+    });
+  }}]
+});
+
+// Q1 average theory hours
+new Chart(document.getElementById('hoursAvg'), {
+  type: 'bar',
+  data: {
+    labels: ['BO团队', 'CTA团队', 'TMFs团队', '遗传办团队', '供应链团队'],
+    datasets: [{
+      label: '2026Q1平均理论工时利用率',
+      data: [75.0, 75.0, 74.51, 94.71, 63.0],
+      backgroundColor: function(context) {
+        var v = context.raw;
+        return v >= 85 ? COLORS.success : v >= 70 ? COLORS.info : v >= 60 ? COLORS.warning : COLORS.danger;
+      },
+      borderRadius: 6, barPercentage: 0.6
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => '平均利用率: ' + ctx.raw + '%' } } },
+    scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }
+  },
+  plugins: [{ id: 'hoursBarLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(chart.data.datasets[0].data[i] + '%', bar.x, bar.y - 8); }); } }]
+});
+
+// ===== Training Charts ===== (full 12 months, fixed label bug)
+new Chart(document.getElementById('trainingChart'), {
+  type: 'line',
+  data: {
+    labels: MONTHS12,
+    datasets: [
+      {
+        label: '培训完成率',
+        data: [99.1, 100.0, 99.6, null, null, null, null, null, null, null, null, null],
+        borderColor: COLORS.primary, backgroundColor: 'rgba(26,58,92,0.1)', fill: true,
+        tension: 0.3, pointRadius: 6, borderWidth: 3, spanGaps: false
+      },
+      {
+        label: '目标线 (99%)',
+        data: [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99],
+        borderColor: COLORS.success, borderDash: [8, 4], pointRadius: 0, borderWidth: 2
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    scales: { y: { min: 98, max: 101, ticks: { callback: v => v + '%' } } }
+  },
+  plugins: [{
+    id: 'trainLabels',
+    afterDatasetsDraw(chart) {
+      drawLabels(chart, 0, chart.data.datasets[0].data, COLORS.primary, 11);
+    }
+  }]
+});
+
+// ===== Quality Charts =====
+new Chart(document.getElementById('ctaQuality'), {
+  type: 'bar',
+  data: {
+    labels: ['2025Q1', '2025Q2', '2025Q3', '2025Q4', '2026Q1'],
+    datasets: [{ label: '基础问题占比', data: [37.25, 61.19, 73.94, 39.77, 46.12], backgroundColor: [COLORS.accent, COLORS.accentLight, COLORS.danger, COLORS.success, COLORS.info], borderRadius: 6, barPercentage: 0.6 }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } } },
+  plugins: [{ id: 'ctaQualLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.getDatasetMeta(0).data.forEach((bar, i) => { ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(chart.data.datasets[0].data[i].toFixed(2) + '%', bar.x, bar.y - 8); }); } }]
+});
+
+new Chart(document.getElementById('ctaDeviation'), {
+  type: 'line',
+  data: {
+    labels: ['2025Q1', '2025Q2', '2025Q3', '2025Q4', '2026Q1'],
+    datasets: [{ label: '识别缺失偏差率', data: [7.73, 2.42, 3.60, 2.28, 4.26], borderColor: COLORS.accent, backgroundColor: 'rgba(232,145,58,0.15)', fill: true, tension: 0.3, pointRadius: 6, borderWidth: 3 }]
+  },
+  options: { responsive: true, scales: { y: { beginAtZero: true, max: 10, ticks: { callback: v => v + '%' } } } },
+  plugins: [{ id: 'devLabels', afterDatasetsDraw(chart) { drawLabels(chart, 0, chart.data.datasets[0].data, COLORS.accent, 11); } }]
+});
+
+new Chart(document.getElementById('geneticsApps'), {
+  type: 'bar',
+  data: {
+    labels: ['国合备案', '国合备案变更', '国合分中心备案', '国合总结'],
+    datasets: [
+      { label: '2025Q1', data: [5, 27, 2, 2], backgroundColor: COLORS.primaryLight, borderRadius: 4 },
+      { label: '2026Q1', data: [5, 52, 50, 5], backgroundColor: COLORS.accent, borderRadius: 4 }
+    ]
+  },
+  options: { responsive: true, plugins: { tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw + '次' } } }, scales: { y: { beginAtZero: true } } },
+  plugins: [{ id: 'genAppsLabels', afterDatasetsDraw(chart) { const { ctx } = chart; chart.data.datasets.forEach((ds, di) => { const meta = chart.getDatasetMeta(di); meta.data.forEach((bar, i) => { if (ds.data[i] === 0) return; ctx.fillStyle = di === 1 ? COLORS.accent : COLORS.primaryLight; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(ds.data[i], bar.x, bar.y - 6); }); }); } }]
+});
+
+new Chart(document.getElementById('geneticsPass'), {
+  type: 'line',
+  data: {
+    labels: ['1月', '2月', '3月'],
+    datasets: [
+      { label: '实际通过率', data: [100.0, 99.3, 99.7], borderColor: COLORS.primary, backgroundColor: 'rgba(26,58,92,0.1)', fill: true, tension: 0.3, pointRadius: 6, borderWidth: 3 },
+      { label: '目标通过率 (99.5%)', data: [99.5, 99.5, 99.5], borderColor: COLORS.success, borderDash: [8, 4], pointRadius: 0, borderWidth: 2 }
+    ]
+  },
+  options: { responsive: true, scales: { y: { min: 99, max: 101, ticks: { callback: v => v + '%' } } } },
+  plugins: [{ id: 'passLabels', afterDatasetsDraw(chart) { drawLabels(chart, 0, chart.data.datasets[0].data, COLORS.primary, 11); } }]
+});
+
+// ===== CTMS Charts =====
+new Chart(document.getElementById('ctmsChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['优秀 (90%-100%)', '良好 (70%-90%)', '及格 (50%-70%)', '不及格 (0%-50%)', '未评估'],
+    datasets: [{ data: [41.46, 14.19, 7.80, 24.27, 12.28], backgroundColor: [COLORS.success, COLORS.info, COLORS.warning, COLORS.danger, COLORS.lightGray], borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { padding: 8, font: { size: 11 } } }, tooltip: { callbacks: { label: ctx => ctx.label + ': ' + ctx.raw + '%' } } } },
+  plugins: [{ id: 'ctmsLabels', afterDatasetsDraw(chart) { const { ctx } = chart; const meta = chart.getDatasetMeta(0); meta.data.forEach((arc, i) => { const val = chart.data.datasets[0].data[i]; const pos = arc.tooltipPosition(); ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(val + '%', pos.x, pos.y - 4); }); } }]
+});
+</script>
+</body>
+</html>
